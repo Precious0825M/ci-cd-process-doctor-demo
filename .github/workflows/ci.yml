@@ -1,0 +1,61 @@
+name: CI/CD Optimized Workflow
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14, 16, 18]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Install dependencies
+      run: npm ci
+    - name: Build project
+      run: npm run build
+    - name: Run tests
+      run: npm test
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with: 
+        name: build-artifacts
+        path: build/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: 
+        env: [dev, staging, production]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with: 
+        name: build-artifacts
+    - name: Deploy to ${{ matrix.env }}
+      run: |
+        echo 'Deploying to ${{ matrix.env }} environment...' 
+        # Add deployment commands here
+
+  notify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Notify on completion
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.SMTP_USERNAME }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        subject: ${{ github.repository }} CI/CD Pipeline Completed
+        body: The CI/CD pipeline for ${{ github.repository }} has completed successfully.
+        cc: ${{ secrets.CC_EMAIL }}
+        bcc: ${{ secrets.BCC_EMAIL }}
